@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<info>
+    <id>openproject</id>
+    <name>Openproject Exapp</name>
+    <summary>Nextcloud-Openproject integration</summary>
+    <description>
+        <![CDATA[Openproject integration to Nextcloud]]>
+    </description>
+    <version>1.0.0</version>
+    <licence>MIT</licence>
+    <author mail="sajan@jankaritech.com" homepage="https://github.com/saw-jan">Sajan Gurung</author>
+    <namespace>PyAppV2_op</namespace>
+    <category>tools</category>
+    <website>https://github.com/saw-jan/exapp-openproject</website>
+    <bugs>https://github.com/saw-jan/exapp-openproject/issues</bugs>
+    <repository type="git">https://github.com/saw-jan/exapp-openproject</repository>
+    <dependencies>
+        <nextcloud min-version="27" max-version="30"/>
+    </dependencies>
+    <external-app>
+        <scopes>
+		</scopes>
+        <system>false</system>
+    </external-app>
+</info>

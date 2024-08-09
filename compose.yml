@@ -1,0 +1,19 @@
+services:
+  openproject:
+    image: openproject/openproject:14
+    environment:
+      OPENPROJECT_SECRET_KEY_BASE: secret
+      OPENPROJECT_HOST__NAME: localhost
+      OPENPROJECT_HTTPS: false
+      OPENPROJECT_DEFAULT__LANGUAGE: en
+      OPENPROJECT_RAILS__RELATIVE__URL__ROOT: /${NC_SUBFOLDER_PATH:-}/index.php/apps/app_api/proxy/openproject
+      OPENPROJECT_2FA_DISABLED: false
+    ports:
+      - 8080:80
+    volumes:
+      - pg_data:/var/openproject/pgdata
+      - op_assets:/var/openproject/assets
+
+volumes:
+  pg_data:
+  op_assets:

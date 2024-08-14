@@ -58,33 +58,42 @@ async def enabled_callback(
 async def proxy_Requests(_request: Request, path: str):
     backend_url = get_backend_url()
     url = urlparse(backend_url)
-
     # Requried for csrf validation
-    _request.headers.__dict__["_list"].append(
-        (
-            "origin".encode(),
-            f"{url.scheme}://{url.netloc}".encode(),
-        )
-    )
+    # _request.headers.__dict__["_list"].append(
+    #     (
+    #         "origin".encode(),
+    #         f"{url.scheme}://{url.netloc}".encode(),
+    #     )
+    # )
 
     response = await proxy_request_to_server(_request, path)
 
     response.headers["content-security-policy"] = (
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
     )
-    response.headers["referrer-policy"] = "strict-origin"
+    # response.headers["referrer-policy"] = "origin-when-cross-origin"
     return response
 
 
 async def proxy_request_to_server(request: Request, path: str):
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient(follow_redirects=False) as client:
         backend_url = get_backend_url()
         url = f"{backend_url}/{path}"
         headers = {}
         for k, v in request.headers.items():
+            # NOTE:
+            # - remove 'host' to make op routes work
+            # - remove 'cookie' to prevent login loop
             if k == "cookie" or k == "host":
                 continue
             headers[k] = v
+
+        cookies = {}
+        for ck, cv in request.cookies.items():
+            if ck == "_open_project_session":
+                cookies[ck] = cv
+
+        req_body = await request.body()
 
         if request.method == "GET":
             response = await client.get(
@@ -93,14 +102,7 @@ async def proxy_request_to_server(request: Request, path: str):
                 cookies=request.cookies,
                 headers=headers,
             )
-
         else:
-            cookies = {}
-            for ck, cv in request.cookies.items():
-                if ck == "_open_project_session":
-                    cookies[ck] = cv
-
-            req_body = await request.body()
             response = await client.request(
                 method=request.method,
                 url=url,
@@ -108,6 +110,16 @@ async def proxy_request_to_server(request: Request, path: str):
                 cookies=cookies,
                 headers=headers,
                 content=req_body,
+            )
+
+        if response.is_redirect:
+            headers["content-length"] = "0"
+            response = await handle_redirects(
+                client,
+                request.method if response.status_code == 307 else "GET",
+                response.headers["location"],
+                cookies,
+                headers,
             )
 
         response_header = dict(response.headers)
@@ -119,6 +131,32 @@ async def proxy_request_to_server(request: Request, path: str):
             status_code=response.status_code,
             headers=response_header,
         )
+
+
+async def handle_redirects(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    cookies: dict,
+    headers: dict,
+):
+    response = await client.request(
+        method=method,
+        url=url,
+        cookies=cookies,
+        headers=headers,
+    )
+
+    if response.is_redirect:
+        return await handle_redirects(
+            client,
+            method if response.status_code == 307 else "GET",
+            response.headers["location"],
+            cookies,
+            headers,
+        )
+
+    return response
 
 
 def get_backend_url():

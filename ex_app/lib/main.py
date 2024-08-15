@@ -56,23 +56,21 @@ async def enabled_callback(
     "/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS"]
 )
 async def proxy_Requests(_request: Request, path: str):
-    backend_url = get_backend_url()
-    url = urlparse(backend_url)
-    # Requried for csrf validation
-    # _request.headers.__dict__["_list"].append(
-    #     (
-    #         "origin".encode(),
-    #         f"{url.scheme}://{url.netloc}".encode(),
-    #     )
-    # )
-
     response = await proxy_request_to_server(_request, path)
 
-    response.headers["content-security-policy"] = (
+    headers = dict(response.headers)
+    headers.pop("transfer-encoding", None)
+    headers.pop("content-encoding", None)
+    headers["content-length"] = str(response.content.__len__())
+    headers["content-security-policy"] = (
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
     )
-    # response.headers["referrer-policy"] = "origin-when-cross-origin"
-    return response
+
+    return Response(
+        content=response.content,
+        status_code=response.status_code,
+        headers=dict(headers),
+    )
 
 
 async def proxy_request_to_server(request: Request, path: str):
@@ -83,23 +81,15 @@ async def proxy_request_to_server(request: Request, path: str):
         for k, v in request.headers.items():
             # NOTE:
             # - remove 'host' to make op routes work
-            # - remove 'cookie' to prevent login loop
-            if k == "cookie" or k == "host":
+            # - remove 'origin' to validate csrf
+            if k == "host" or k == "origin":
                 continue
             headers[k] = v
-
-        cookies = {}
-        for ck, cv in request.cookies.items():
-            if ck == "_open_project_session":
-                cookies[ck] = cv
-
-        req_body = await request.body()
 
         if request.method == "GET":
             response = await client.get(
                 url,
                 params=request.query_params,
-                cookies=request.cookies,
                 headers=headers,
             )
         else:
@@ -107,43 +97,38 @@ async def proxy_request_to_server(request: Request, path: str):
                 method=request.method,
                 url=url,
                 params=request.query_params,
-                cookies=cookies,
                 headers=headers,
-                content=req_body,
+                content=await request.body(),
             )
 
         if response.is_redirect:
-            headers["content-length"] = "0"
-            response = await handle_redirects(
-                client,
-                request.method if response.status_code == 307 else "GET",
-                response.headers["location"],
-                cookies,
-                headers,
-            )
+            if url.endswith("/login") or "/two_factor_authentication/" in url:
+                redirect_path = urlparse(response.headers["location"]).path
+                redirect_url = get_nc_url() + redirect_path
+                response.headers["location"] = redirect_url
+                # fake 200 status code so that NC passes the response to the browser
+                response.status_code = 200
+            else:
+                headers["content-length"] = "0"
+                response = await handle_redirects(
+                    client,
+                    request.method if response.status_code == 307 else "GET",
+                    response.headers["location"],
+                    headers,
+                )
 
-        response_header = dict(response.headers)
-        response_header.pop("transfer-encoding", None)
-        response_header.pop("content-encoding", None)
-        response_header["content-length"] = str(response.content.__len__())
-        return Response(
-            content=response.content,
-            status_code=response.status_code,
-            headers=response_header,
-        )
+        return response
 
 
 async def handle_redirects(
     client: httpx.AsyncClient,
     method: str,
     url: str,
-    cookies: dict,
     headers: dict,
 ):
     response = await client.request(
         method=method,
         url=url,
-        cookies=cookies,
         headers=headers,
     )
 
@@ -152,7 +137,6 @@ async def handle_redirects(
             client,
             method if response.status_code == 307 else "GET",
             response.headers["location"],
-            cookies,
             headers,
         )
 
@@ -161,6 +145,12 @@ async def handle_redirects(
 
 def get_backend_url():
     return os.getenv("OP_BACKEND_URL", "http://localhost:8080")
+
+
+def get_nc_url():
+    nc_url = os.getenv("NEXTCLOUD_URL", "http://localhost/index.php")
+    url = urlparse(nc_url)
+    return f"{url.scheme}://{url.netloc}"
 
 
 if __name__ == "__main__":

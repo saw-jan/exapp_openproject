@@ -69,7 +69,7 @@ async def proxy_Requests(_request: Request, path: str):
     return Response(
         content=response.content,
         status_code=response.status_code,
-        headers=dict(headers),
+        headers=headers,
     )
 
 

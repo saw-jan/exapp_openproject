@@ -1,15 +1,24 @@
 services:
-  openproject:
-    image: openproject/openproject:14
+  ex_openproject:
+    image: sawjan/ex_app_openproject
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
-      OPENPROJECT_SECRET_KEY_BASE: secret
       OPENPROJECT_HOST__NAME: localhost
       OPENPROJECT_HTTPS: false
-      OPENPROJECT_DEFAULT__LANGUAGE: en
       OPENPROJECT_RAILS__RELATIVE__URL__ROOT: /${NC_SUBFOLDER_PATH:-}/index.php/apps/app_api/proxy/openproject
-      OPENPROJECT_2FA_DISABLED: false
+      # exapp
+      APP_ID: openproject
+      APP_PORT: 9030
+      APP_HOST: 0.0.0.0
+      APP_SECRET: 12345
+      APP_VERSION: 1.0.0
+      AA_VERSION: 2.8.0
+      NEXTCLOUD_URL: http://${NC_HOST:-localhost}/${NC_SUBFOLDER_PATH:-}/index.php
+      OP_BACKEND_URL: http://localhost/${NC_SUBFOLDER_PATH:-}/index.php/apps/app_api/proxy/openproject
     ports:
-      - 8080:80
+      - 9030:9030
     volumes:
       - pg_data:/var/openproject/pgdata
       - op_assets:/var/openproject/assets

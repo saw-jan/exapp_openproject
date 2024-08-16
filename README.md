@@ -1,20 +1,17 @@
-## Run the Setup
+## How to run?
 
-1. Start OpenProject
+1. Run the ex_app
 
    ```bash
-   NC_SUBFOLDER_PATH="" docker compose up
+   NC_HOST="localhost" \
+   NC_SUBFOLDER_PATH="" \
+   docker compose up
    ```
 
    > use `NC_SUBFOLDER_PATH` env if Nextcloud is running in a subfolder.
+   > e.g. `NC_SUBFOLDER_PATH="nextcloud"`
 
-2. Start ex_app
-
-   ```bash
-   NC_SUBFOLDER_PATH="" bash exapp.sh
-   ```
-
-3. Register ex_app in Nextcloud
+2. Register ex_app in Nextcloud
 
    ```bash
    sudo -u www-data php occ app_api:app:register openproject manual_install --json-info \
@@ -22,6 +19,6 @@
    --force-scopes --wait-finish
    ```
 
-4. Access OpenProject
+3. Access OpenProject
 
-   URL: http://localhost/{NC_SUBFOLDER_PATH}/index.php/apps/app_api/proxy/openproject
+   URL: http://{NC_HOST}/{NC_SUBFOLDER_PATH}/index.php/apps/app_api/proxy/openproject

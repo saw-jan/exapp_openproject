@@ -15,5 +15,8 @@ RUN python3 -m pip install -r /requirements.txt \
 COPY ex_app/lib /ex_app/lib
 COPY docker/entrypoint.sh /entrypoint.sh
 
+EXPOSE 9030
+EXPOSE 80
+
 ENTRYPOINT ["bash"]
 CMD ["/entrypoint.sh"]
